@@ -1,7 +1,6 @@
 module.exports = {
     post:{
         assignment:{
-            "employeeId": "Ggl-123",
             "description":"Update all the SO",
             "assignmentId": "tsk-123",
             "status": "pending"

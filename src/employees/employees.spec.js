@@ -71,7 +71,7 @@ describe('employees', function(){
             });
         });        
     });
-    describe('[GET] /employees/:id', function(){
+    describe('[GET] /employees/:employeeId', function(){
         it('It should get an employee using its id', function(done){
             chai.request(app).get('/employees/1').end(function(err, res){
                 should.not.exist(err);
@@ -87,7 +87,7 @@ describe('employees', function(){
             });
         });
     });
-    describe('[PUT] /employees/:id', function(){
+    describe('[PUT] /employees/:employeeId', function(){
         it('it should update an employee by his id', function(done){
             chai.request(app).put('/employees/1').send(fixtures.put.employee).end(function(err, res){
                 should.not.exist(err);
@@ -126,7 +126,7 @@ describe('employees', function(){
             });
         });        
     });
-    describe('[DELETE] /employees/:id', function(){
+    describe('[DELETE] /employees/:employeeId', function(){
         it('it should delete an employee using its id', function(done){
             chai.request(app).delete('/employees/1').end(function(err, res){
                 should.not.exist(err);

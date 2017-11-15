@@ -3,8 +3,9 @@
 const express = require('express');
 const _ = require('lodash');
 const schema = require('schema-object');
-const route = express.Router();
-const office = require('../offices');
+const listRouter = express.Router();
+const singleInstanceRouter = express.Router();
+const assignment = require('../assignments');
 const arr = [];
 
 const Employee = new schema({
@@ -29,7 +30,7 @@ const EmployeeSearch = new schema({
     human_robot: { type: String, enum:['H', 'R']}
 },{setUndefined:false});
 
-route.post('/', function(req, res){
+listRouter.post('/', function(req, res){
     if(_.find(arr, {"employeeId": req.body.employeeId})){
         return res.status(422).json([{"message":"The employeeId should be unique", "name":"employeeId"}]);
     }
@@ -37,7 +38,7 @@ route.post('/', function(req, res){
     let employee = new Employee({
         "id": (arr.length+1)+'',
         "employeeId":req.body.employeeId,
-        "officeId": req.body.officeId,
+        "officeId": req.params.id,
         "age" :  req.body.age,
         "first_name": req.body.first_name,
         "last_name": req.body.last_name,
@@ -53,7 +54,7 @@ route.post('/', function(req, res){
     arr.push(employee);
     res.json(arr[arr.length-1]);
 });
-route.get('/', function(req,res){
+listRouter.get('/', function(req,res){
     if(_.isEmpty(req.query)){
         return res.json(arr);
     }
@@ -68,43 +69,42 @@ route.get('/', function(req,res){
     res.json(_.filter(arr, employee));
 });
 
-route.get('/:id', function(req, res){
-    let tmp = _.find(arr, {"id": req.params.id});
+function singleInstanceValidator(req, res, next){
+    let tmp = _.find(arr, {"employeeId": req.params.employeeId});
     if(tmp){
-        return res.json(tmp);
+        req.employee = tmp;
+        return next();
     }
-    res.status(404).json([{"message":"Employee not found", "name": "id"}]);
+    res.sendStatus(404);
+}
+
+listRouter.use('/:employeeId', singleInstanceValidator, singleInstanceRouter);
+
+singleInstanceRouter.get('/', function(req, res){
+    return res.json(req.employee);
 });
-route.delete('/:id', function(req, res){
-    let tmp = _.remove(arr, function(employee){
-        return employee.id === req.params.id
-    });
-    if(tmp.length>0){
-        return res.json(tmp[0]);
-    }
-    res.status(404).json([{"message":"Employee not found", "name": "id"}]);
-    
+singleInstanceRouter.delete('/', function(req, res){
+    let tmp = _.pull(arr, req.employee)
+    return res.json(tmp[0]);   
 });
 
-route.put('/:id', function(req, res){
-    let employee = _.find(arr, {"id":req.params.id});
-    if(!employee){
-        return res.status(404).json([{"message":"Employee not found", "name":"id"}]);
-    }
+singleInstanceRouter.put('/', function(req, res){
     let employeeid = _.find(arr, {"employeeId":req.body.employeeId});    
-    if(employeeid && employeeid.id !== employee.id){
+    if(employeeid && employeeid.id !== req.employee.id){
          return res.status(422).json([{"message": "EmployeeId already used", "name":"employeeId"}])
     }
-    let tmp_employee = employee.clone();
+    let tmp_employee = req.employee.clone();
     _.assign(tmp_employee, req.body);
     if(tmp_employee.isErrors()){
         return res.status(422).json(tmp_employee.getErrors().map(function(err){
             return {"message": err.errorMessage, "name": err.fieldSchema.name}
         }));
     }
-    _.assign(employee, req.body);
-    return res.json(employee);
+    _.assign(req.employee, req.body);
+    return res.json(req.employee);
 
 });
 
-module.exports = route;
+singleInstanceRouter.use('/assignments', assignment);
+
+module.exports = listRouter;

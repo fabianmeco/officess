@@ -3,7 +3,7 @@ const express = require('express');
 const _ = require('lodash');
 const schema = require('schema-object');
 const route = express.Router();
-const office = require('../employees');
+
 const arr = [];
 //assignations: id, assignationId, description, map status
 const Assignment = new schema({
@@ -30,14 +30,14 @@ route.post('/', function(req, res){
     //Validate employeeId and return if not found
     let assignment = new Assignment({
         "id": (arr.length+1)+'',
-        "employeeId":req.body.employeeId,
+        "employeeId":req.params.employeeId,
         "assignmentId" :  req.body.assignmentId,
         "description": req.body.description,
         "status": req.body.status
     });
     if(assignment.isErrors()){        
         return res.status(422).json(assignment.getErrors().map(function(err){
-            //console.log(err.fieldSchema.name+err.errorMessage);
+            console.log(err.fieldSchema.name+' - '+err.errorMessage);
             return {"message": err.errorMessage, "name": err.fieldSchema.name};
         }));
     }

@@ -4,6 +4,7 @@ const _ = require('lodash');
 const offices = require('./offices'); 
 const employees = require('./employees');
 const assignments = require('./assignments');
+
 const app = express();
 
 app.listen(3000, function(){
