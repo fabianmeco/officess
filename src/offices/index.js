@@ -19,13 +19,13 @@ const office = new schema({
 }, { setUndefined: true});
 
 const officeSearch = new schema({
-    id: String,
-    building: String,
-    identifier: String,
-    floor: Number,
-    capacity: String,
-    area: Number,
-    isAdminOffice : Boolean //defines if the office is admin or comon area, true=admin, false=common area
+    id: {type: String},
+    building: {type: String},
+    identifier: {type: String},
+    floor: {type: Number},
+    capacity: {type: String},
+    area: {type: Number},
+    isAdminOffice : {type: Boolean} //defines if the office is admin or comon area, true=admin, false=common area
 
 }, { setUndefined: false});
 
@@ -62,12 +62,14 @@ route.get('/', function(req,res){
         return res.json(arr);
     }
     let office = new officeSearch(req.query);
+    
     if(office.isErrors()){
-        return res.status(422).json(office.getErrors().map(function(){
+        
+        return res.status(422).json(office.getErrors().map(function(err){
             return {"message":err.errorMessage, "name": err.fieldSchema.name}
         }));
     }
-    res._.filter(arr, office);
+    res.json(_.filter(arr, office));
 });
 
 route.get('/:id', function(req, res){
@@ -78,7 +80,7 @@ route.get('/:id', function(req, res){
     res.status(404).json({"errorMessage":"Office not found"});
 });
 route.delete('/:id', function(req, res){
-    let tmp = _.remove(arr, function(){
+    let tmp = _.remove(arr, function(office){
         return office.id === req.params.id
     });
     if(tmp.length>0){
@@ -91,11 +93,11 @@ route.delete('/:id', function(req, res){
 route.put('/:id', function(req, res){
     let office = _.find(arr, {"id":req.params.id});
     if(!office){
-        return res.status(404);
+        return res.sendStatus(404);
     }
-    let officeId = _.find(arr, {"identifier":req.body.identifier});
-    if(officeId && officeId.identifier !== req.body.identifier){
-        return res.status(422).json({"errorMessage": "Identifier already used"})
+    let officeId = _.find(arr, {"identifier":req.body.identifier});    
+    if(officeId && officeId.id !== office.id){
+         return res.status(422).json({"errorMessage": "Identifier already used", "name":"identifier"})
     }
     let officetmp = office.clone();
     _.assign(officetmp, req.body);

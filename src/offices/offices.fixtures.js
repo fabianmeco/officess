@@ -31,10 +31,25 @@ module.exports={
         },
 
     },
-    get:{
+    put:{
         office:{
-            "identifier": 324,
-            "building": "UTA",
+            "identifier": "UTA-322",
+            "building": "UTE",
+            "floor": 2
+
+        },
+        officegood:{
+            "identifier":"UTA-322",
+            "building": "UTA"
+        },
+        officeidentifier:{
+            "identifier": "UTA-322",
+            "floor": 6
+        },
+        officewrong:{
+            "identifier": 333,
+            "floor": "nueve"
+
         }
     }
 }
