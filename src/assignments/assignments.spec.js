@@ -95,14 +95,14 @@ describe('assignments', function(){
                 done();
             })
         });
-        it('it should update an assignment using his id and the same employeeId', function(done){
+        it('it should update an assignment using his id and the same assignmentId', function(done){
             chai.request(app).put('/assignments/1').send(fixtures.put.assignmentid).end(function(err, res){
                 should.not.exist(err);
                 res.body.id.should.to.equal('1');
                 done();
             })
         });
-        it('it shouldn\'t update an assignment using a duplicated employeeId', function(done){
+        it('it shouldn\'t update an assignment using a duplicated assignmentId', function(done){
             chai.request(app).put('/assignments/2').send(fixtures.put.assignment).end(function(err, res){
                 should.exist(err);
                 expect(res).have.status(422);

@@ -4,7 +4,7 @@ exports.up = function(knex, Promise) {
       employee.increments('id').primary();
       employee.string('employeeId').notNull().unique();
       employee.string('officeId').notNull();
-      employee.foreign('officeId').references('offices.officeId');
+      employee.foreign('officeId').references('offices.identifier');
       employee.decimal('age').nullable();
       employee.string('first_name').notNull();
       employee.string('last_name').notNull();
