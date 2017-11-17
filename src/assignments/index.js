@@ -3,6 +3,7 @@ const express = require('express');
 const _ = require('lodash');
 const schema = require('schema-object');
 const route = express.Router();
+const assignmentModel = require('./assignments.model');
 
 const arr = [];
 //assignations: id, assignationId, description, map status
@@ -28,35 +29,27 @@ route.post('/', function(req, res){
         return res.status(422).json([{"message":"The assignmentId should be unique", "name":"assignmentId"}]);
     }
     //Validate employeeId and return if not found
-    let assignment = new Assignment({
-        "id": (arr.length+1)+'',
-        "employeeId":req.params.employeeId,
-        "assignmentId" :  req.body.assignmentId,
-        "description": req.body.description,
-        "status": req.body.status
-    });
+    let assignment = new Assignment(req.body);
     if(assignment.isErrors()){        
         return res.status(422).json(assignment.getErrors().map(function(err){
             console.log(err.fieldSchema.name+' - '+err.errorMessage);
             return {"message": err.errorMessage, "name": err.fieldSchema.name};
         }));
     }
-    arr.push(assignment);
-    res.json(arr[arr.length-1]);
+    return assignmentModel.create(req.body).then(value => res.json(req.body)).catch(err => res.status(500).send(err.message));    
 });
 route.get('/', function(req,res){
     if(_.isEmpty(req.query)){
-        return res.json(arr);
+        return assignmentModel.findAll(null).then(value => res.json(value)).catch(err => res.status(500).send(err.message));
     }
-    let assignment = new Assignmentsearch(req.query);
-    
+    let assignment = new Assignmentsearch(req.query);    
     if(assignment.isErrors()){
         
         return res.status(422).json(assignment.getErrors().map(function(err){
             return {"message":err.errorMessage, "name": err.fieldSchema.name}
         }));
     }
-    res.json(_.filter(arr, assignment));
+    return assignmentModel.findAll(req.query).then(value => res.json(value)).catch(err => res.status(500).send(err.message));    
 });
 
 route.get('/:id', function(req, res){

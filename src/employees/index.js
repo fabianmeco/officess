@@ -6,6 +6,7 @@ const schema = require('schema-object');
 const listRouter = express.Router();
 const singleInstanceRouter = express.Router();
 const assignment = require('../assignments');
+const employeeModel = require('./employees.model');
 const arr = [];
 
 const Employee = new schema({
@@ -31,48 +32,46 @@ const EmployeeSearch = new schema({
 },{setUndefined:false});
 
 listRouter.post('/', function(req, res){
-    if(_.find(arr, {"employeeId": req.body.employeeId})){
-        return res.status(422).json([{"message":"The employeeId should be unique", "name":"employeeId"}]);
-    }
+    //find the username inside the db
+    employeeModel.find({"employeeId": req.body.employeeId}).then(function(found){
+        if(found){
+            return res.status(422).json([{"message":"The employeeId should be unique", "name":"employeeId"}]);
+        }
+        req.body.officeId = req.office.officeId;
+        let employee = new Employee(req.body);
+        if(employee.isErrors()){        
+            return res.status(422).json(employee.getErrors().map(function(err){
+                console.log(err.fieldSchema.name+err.errorMessage);
+                return {"message": err.errorMessage, "name": err.fieldSchema.name};
+            }));
+        }
+        return employeeModel.create(req.body)    
+
+    })
+    .then(newEmployee => res.json(newEmployee))
+    .catch(err => res.status(500).send(err.message));    
     //Validate officeId and return if not found
-    let employee = new Employee({
-        "id": (arr.length+1)+'',
-        "employeeId":req.body.employeeId,
-        "officeId": req.params.id,
-        "age" :  req.body.age,
-        "first_name": req.body.first_name,
-        "last_name": req.body.last_name,
-        "charge" : req.body.charge,
-        "human_robot": req.body.human_robot
-    });
-    if(employee.isErrors()){        
-        return res.status(422).json(employee.getErrors().map(function(err){
-            console.log(err.fieldSchema.name+err.errorMessage);
-            return {"message": err.errorMessage, "name": err.fieldSchema.name};
-        }));
-    }
-    arr.push(employee);
-    res.json(arr[arr.length-1]);
+    
 });
 listRouter.get('/', function(req,res){
     if(_.isEmpty(req.query)){
-        return res.json(arr);
+        return employeeModel.findAll(null).then(value => res.json(value)).catch(err => res.status(500).send(err.message));
     }
-    let employee = new EmployeeSearch(req.query);
-    
-    if(employee.isErrors()){
-        
+    let employee = new EmployeeSearch(req.query);    
+    if(employee.isErrors()){        
         return res.status(422).json(employee.getErrors().map(function(err){
             return {"message":err.errorMessage, "name": err.fieldSchema.name}
         }));
     }
-    res.json(_.filter(arr, employee));
+    employeeModel.findAll(req.query).then(value => res.json(value)).catch(err => res.status(500).send(err.message));    
 });
 
 function singleInstanceValidator(req, res, next){
-    let tmp = _.find(arr, {"employeeId": req.params.employeeId});
-    if(tmp){
-        req.employee = tmp;
+    let employeetemp = {};
+    employeeModel.find(req.params.employeeId).then(value => employeetemp = value).catch(err => res.status(500).send(err.message));
+    //_.find(arr, {"employeeId": req.params.employeeId});
+    if(employeetemp){
+        req.employee = employeetemp;
         return next();
     }
     res.sendStatus(404);
@@ -84,13 +83,11 @@ singleInstanceRouter.get('/', function(req, res){
     return res.json(req.employee);
 });
 singleInstanceRouter.delete('/', function(req, res){
-    let tmp = _.pull(arr, req.employee)
-    return res.json(tmp[0]);   
+    return employeeModel.remove(req.params.employeeId).then(value => res.json(value)).catch(err => res.status(500).send(err.message));    
 });
 
 singleInstanceRouter.put('/', function(req, res){
-    let employeeid = _.find(arr, {"employeeId":req.body.employeeId});    
-    if(employeeid && employeeid.id !== req.employee.id){
+    if(req.params.employeeId !== req.employee.id){
          return res.status(422).json([{"message": "EmployeeId already used", "name":"employeeId"}])
     }
     let tmp_employee = req.employee.clone();
@@ -100,9 +97,8 @@ singleInstanceRouter.put('/', function(req, res){
             return {"message": err.errorMessage, "name": err.fieldSchema.name}
         }));
     }
-    _.assign(req.employee, req.body);
-    return res.json(req.employee);
-
+    return employeeModel.update(req.employee.id, req.body).then(value => res.json(value)).catch(err => res.status(500).send(err.message));
+    
 });
 
 singleInstanceRouter.use('/assignments', assignment);

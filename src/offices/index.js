@@ -6,6 +6,7 @@ const listRouter = express.Router();
 const singleInstanceRouter = express.Router();
 const schema = require('schema-object');
 const employees = require('../employees');
+const officeModel = require('./offices.model');
 const arr = [];
 
 const office = new schema({
@@ -40,43 +41,34 @@ listRouter.post('/', function (req, res) {
     if (_.find(arr, { "identifier": req.body.identifier })) {
         return res.status(422).json([{ "message": "The identifier should be unique", "name": "identifier" }]);
     }
-    let officetmp = new office({
-        "id": (arr.length + 1) + "",
-        "building": req.body.building,
-        "identifier": req.body.identifier,
-        "floor": req.body.floor,
-        "capacity": req.body.capacity,
-        "area": req.body.area,
-        "isAdminOffice": req.body.isAdminOffice
-    });
+    let officetmp = new office(req.body);
     if (officetmp.isErrors()) {
         return res.status(422).json(officetmp.getErrors().map(function (err) {
             return { "message": err.errorMessage, "name": err.fieldSchema.name }
         }));
     }
-    arr.push(officetmp);
-    res.json(arr[arr.length - 1]);
+    officeModel.create(req.body).then(value => res.json(req.body)).catch(err => res.status(500).send(err.message));
 });
 
 listRouter.get('/', function (req, res) {
     if (_.isEmpty(req.query)) {
-        return res.json(arr);
+        return officeModel.findAll(null).then(value => res.json(value)).catch(err.status(500).send(err.message));
     }
     let office = new officeSearch(req.query);
-
     if (office.isErrors()) {
 
         return res.status(422).json(office.getErrors().map(function (err) {
             return { "message": err.errorMessage, "name": err.fieldSchema.name }
         }));
     }
-    res.json(_.filter(arr, office));
+    officeModel.findAll(req.query).then(value => res.json(value)).catch(err.status(500).send(err.message));
 });
 
 function singleInstanceValidator(req, res, next) {
-    let tmp = _.find(arr, { "id": req.params.id });
-    if (tmp) {
-        req.office = tmp;
+    let officetmp = {};
+    officeModel.find(req.params.id).then(value => officetmp=value).catch(err => res.status(500).send(err.message));
+    if (officetmp) {
+        req.office = officetmp;
         return next();
     }
     res.sendStatus(404);
@@ -88,13 +80,11 @@ singleInstanceRouter.get('/', function (req, res) {
     return res.json(req.office);
 });
 singleInstanceRouter.delete('/', function (req, res) {
-    let tmp = _.pull(arr, req.office);
-    return res.json(tmp[0]);
+    officeModel.remove(req.office.id).then(value => res.json(req.office)).catch(err => res.status(500).send(err.message));
 });
 
 singleInstanceRouter.put('/', function (req, res) {
-    let officeId = _.find(arr, { "identifier": req.body.identifier });
-    if (officeId && officeId.id !== req.office.id) {
+    if (req.params.id !== req.office.id) {
         return res.status(422).json({ "errorMessage": "Identifier already used", "name": "identifier" })
     }
     let officetmp = req.office.clone();
@@ -104,8 +94,8 @@ singleInstanceRouter.put('/', function (req, res) {
             return { "message": err.errorMessage, "name": err.fieldSchema.name }
         }));
     }
-    _.assign(req.office, req.body);
-    return res.json(req.office);
+    return officeModel.update(req.office.id, req.body).then(value => res.json(req.office)).catch(err => res.status(500).send(err.message));
+
 
 });
 
