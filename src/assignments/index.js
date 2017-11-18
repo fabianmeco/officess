@@ -2,7 +2,8 @@
 const express = require('express');
 const _ = require('lodash');
 const schema = require('schema-object');
-const route = express.Router();
+const listRouter = express.Router();
+const singleInstanceRouter = express.Router;
 const assignmentModel = require('./assignments.model');
 
 const arr = [];
@@ -24,21 +25,24 @@ const Assignmentsearch = new schema({
     status:{type: String, enum:["active", "pending", "inactive" ]}
 },{setUndefined:false});
 
-route.post('/', function(req, res){
-    if(_.find(arr, {"assignmentId": req.body.assignmentId})){
+listRouter.post('/', function(req, res){
+   assignmentModel.find({"assignmentId": req.body.assignmentId}).then( function (found){
+       if (found){
         return res.status(422).json([{"message":"The assignmentId should be unique", "name":"assignmentId"}]);
-    }
+       }
+       let assignment = new Assignment(req.body);
+       if(assignment.isErrors()){        
+           return res.status(422).json(assignment.getErrors().map(function(err){
+               console.log(err.fieldSchema.name+' - '+err.errorMessage);
+               return {"message": err.errorMessage, "name": err.fieldSchema.name};
+           }));
+       }
+       return assignmentModel.create(req.body)    
+   }).then(newAssignment => res.json(newAssignment))
+   .catch(err => res.status(500).send(err.message));
     //Validate employeeId and return if not found
-    let assignment = new Assignment(req.body);
-    if(assignment.isErrors()){        
-        return res.status(422).json(assignment.getErrors().map(function(err){
-            console.log(err.fieldSchema.name+' - '+err.errorMessage);
-            return {"message": err.errorMessage, "name": err.fieldSchema.name};
-        }));
-    }
-    return assignmentModel.create(req.body).then(value => res.json(req.body)).catch(err => res.status(500).send(err.message));    
 });
-route.get('/', function(req,res){
+listRouter.get('/', function(req,res){
     if(_.isEmpty(req.query)){
         return assignmentModel.findAll(null).then(value => res.json(value)).catch(err => res.status(500).send(err.message));
     }
@@ -51,33 +55,27 @@ route.get('/', function(req,res){
     }
     return assignmentModel.findAll(req.query).then(value => res.json(value)).catch(err => res.status(500).send(err.message));    
 });
+function singleInstanceValidator(req, res, next){
+    let assignmenttmp = {}
+    assignmentModel.find(re.params.id).then(value => assignmenttmp=value).catch(err = res.status(500).send(err.message));
+    if(assignmenttmp){
+        req.assignment = assignmenttmp;
+        return next();
+    }
+    res.sendStatus(404);
+}
+listRouter.use('/:id', singleInstanceValidator, singleInstanceRouter);
 
-route.get('/:id', function(req, res){
-    let tmp = _.find(arr, {"id": req.params.id});
-    if(tmp){
-        return res.json(tmp);
-    }
-    res.status(404).json([{"message":"Assignmentid not found", "name": "id"}]);
+singleInstanceRouter.get('/', function(req, res){
+    return res.json(req.assignment);
 });
-route.delete('/:id', function(req, res){
-    let tmp = _.remove(arr, function(assignment){
-        return assignment.id === req.params.id
-    });
-    if(tmp.length>0){
-        return res.json(tmp[0]);
-    }
-    res.status(404).json([{"message":"Assignmentid not found", "name": "id"}]);
-    
+singleInstanceRouter.delete('/', function(req, res){
+    return assignmentModel.remove(req.assignment.id).then(value => res.json(req.assignment)).catch(err => res.status(500).send(err.message));
 });
 
-route.put('/:id', function(req, res){
-    let assignment = _.find(arr, {"id":req.params.id});
-    if(!assignment){
-        return res.status(404).json([{"message":"Assigmentid not found", "name":"id"}]);
-    }
-    let assignmentid = _.find(arr, {"assignmentId":req.body.assignmentId});    
-    if(assignmentid && assignmentid.id !== assignment.id){
-         return res.status(422).json([{"message": "Assignmentid already used", "name":"id"}])
+singleInstanceRouter.put('/', function(req, res){
+    if(req.params.id !== req.assignment.id){
+         return res.status(422).json([{"message": "Assignmentid already used", "name":"assigmentId"}])
     }
     let tmp_assign = assignment.clone();
     _.assign(tmp_assign, req.body);
@@ -86,9 +84,8 @@ route.put('/:id', function(req, res){
             return {"message": err.errorMessage, "name": err.fieldSchema.name}
         }));
     }
-    _.assign(assignment, req.body);
-    return res.json(assignment);
+    return assignmentModel.update(req.assignment.id, req.body).then(value => res.json(req.assignment)).catch(err => res.status(500).send(err.message))
 
 });
 
-module.exports = route;
+module.exports = listRouter;

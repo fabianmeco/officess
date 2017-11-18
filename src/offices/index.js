@@ -38,16 +38,23 @@ listRouter.use(function timeLog(req, res, next) {
 //employees: id, employeeId, age, name, last name, charge, map human robot
 //assignations: id, assignationId, description, map status
 listRouter.post('/', function (req, res) {
-    if (_.find(arr, { "identifier": req.body.identifier })) {
-        return res.status(422).json([{ "message": "The identifier should be unique", "name": "identifier" }]);
-    }
-    let officetmp = new office(req.body);
-    if (officetmp.isErrors()) {
-        return res.status(422).json(officetmp.getErrors().map(function (err) {
-            return { "message": err.errorMessage, "name": err.fieldSchema.name }
-        }));
-    }
-    officeModel.create(req.body).then(value => res.json(req.body)).catch(err => res.status(500).send(err.message));
+
+    officeModel.find({"identifier": req.body.identifier}).then(function(found){
+        if(found){
+            return res.status(422).json([{"message":"The employeeId should be unique", "name":"identifier"}]);
+        }
+        let office = new Employee(req.body);
+        if(office.isErrors()){        
+            return res.status(422).json(office.getErrors().map(function(err){
+                console.log(err.fieldSchema.name+err.errorMessage);
+                return {"message": err.errorMessage, "name": err.fieldSchema.name};
+            }));
+        }
+        return officeModel.create(req.body)    
+
+    })
+    .then(newOffice => res.json(newOffice))
+    .catch(err => res.status(500).send(err.message)); 
 });
 
 listRouter.get('/', function (req, res) {
