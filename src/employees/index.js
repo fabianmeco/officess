@@ -55,7 +55,7 @@ listRouter.post('/', function(req, res){
 });
 listRouter.get('/', function(req,res){
     if(_.isEmpty(req.query)){
-        return employeeModel.findAll(null).then(value => res.json(value)).catch(err => res.status(500).send(err.message));
+        return employeeModel.findAll().then(value => res.json(value)).catch(err => res.status(500).send(err.message));
     }
     let employee = new EmployeeSearch(req.query);    
     if(employee.isErrors()){        
@@ -68,13 +68,15 @@ listRouter.get('/', function(req,res){
 
 function singleInstanceValidator(req, res, next){
     let employeetemp = {};
-    employeeModel.find(req.params.employeeId).then(value => employeetemp = value).catch(err => res.status(500).send(err.message));
+    employeeModel.find(req.params.employeeId).then(function(value) {
+        if(value){
+            req.employee = employeetemp;
+            return next();
+        }
+        return res.sendStatus(404);
+    } ).catch(err => res.status(500).send(err.message));
     //_.find(arr, {"employeeId": req.params.employeeId});
-    if(employeetemp){
-        req.employee = employeetemp;
-        return next();
-    }
-    res.sendStatus(404);
+    
 }
 
 listRouter.use('/:employeeId', singleInstanceValidator, singleInstanceRouter);
@@ -87,16 +89,19 @@ singleInstanceRouter.delete('/', function(req, res){
 });
 
 singleInstanceRouter.put('/', function(req, res){
-    if(req.params.employeeId !== req.employee.id){
-         return res.status(422).json([{"message": "EmployeeId already used", "name":"employeeId"}])
-    }
-    let tmp_employee = req.employee.clone();
-    _.assign(tmp_employee, req.body);
-    if(tmp_employee.isErrors()){
-        return res.status(422).json(tmp_employee.getErrors().map(function(err){
-            return {"message": err.errorMessage, "name": err.fieldSchema.name}
-        }));
-    }
+    employeeModel.find({ employeeId: req.office.employeeId }).then(function (value) {
+        if (value.id !== req.employee.id) {
+            return res.status(422).json({ "errorMessage": "Identifier already used", "name": "identifier" })
+        }
+        let employeetmp = new officeSearch(req.body);
+        if (employeetmp.isErrors()) {
+            return res.status(422).json(employeetmp.getErrors().map(function (err) {
+                return { "message": err.errorMessage, "name": err.fieldSchema.name }
+            }));
+        }
+        
+    }).catch(err => res.status(500).send(err.message));
+    
     return employeeModel.update(req.employee.id, req.body).then(value => res.json(value)).catch(err => res.status(500).send(err.message));
     
 });

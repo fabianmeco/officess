@@ -3,7 +3,7 @@ const express = require('express');
 const _ = require('lodash');
 const schema = require('schema-object');
 const listRouter = express.Router();
-const singleInstanceRouter = express.Router;
+const singleInstanceRouter = express.Router();
 const assignmentModel = require('./assignments.model');
 
 const arr = [];
@@ -44,7 +44,7 @@ listRouter.post('/', function(req, res){
 });
 listRouter.get('/', function(req,res){
     if(_.isEmpty(req.query)){
-        return assignmentModel.findAll(null).then(value => res.json(value)).catch(err => res.status(500).send(err.message));
+        return assignmentModel.findAll().then(value => res.json(value)).catch(err => res.status(500).send(err.message));
     }
     let assignment = new Assignmentsearch(req.query);    
     if(assignment.isErrors()){
@@ -56,13 +56,15 @@ listRouter.get('/', function(req,res){
     return assignmentModel.findAll(req.query).then(value => res.json(value)).catch(err => res.status(500).send(err.message));    
 });
 function singleInstanceValidator(req, res, next){
-    let assignmenttmp = {}
-    assignmentModel.find(re.params.id).then(value => assignmenttmp=value).catch(err = res.status(500).send(err.message));
-    if(assignmenttmp){
-        req.assignment = assignmenttmp;
-        return next();
-    }
-    res.sendStatus(404);
+    //let assignmenttmp = {}
+    assignmentModel.find(re.params.id).then( function (value){
+        if(value){
+            req.assignment = assignmenttmp;
+            return next();
+        }
+        return res.sendStatus(404);
+    }).catch(err => res.status(500).send(err.message));
+    
 }
 listRouter.use('/:id', singleInstanceValidator, singleInstanceRouter);
 
@@ -74,17 +76,19 @@ singleInstanceRouter.delete('/', function(req, res){
 });
 
 singleInstanceRouter.put('/', function(req, res){
-    if(req.params.id !== req.assignment.id){
-         return res.status(422).json([{"message": "Assignmentid already used", "name":"assigmentId"}])
-    }
-    let tmp_assign = assignment.clone();
-    _.assign(tmp_assign, req.body);
-    if(tmp_assign.isErrors()){
-        return res.status(422).json(tmp_assign.getErrors().map(function(err){
-            return {"message": err.errorMessage, "name": err.fieldSchema.name}
-        }));
-    }
-    return assignmentModel.update(req.assignment.id, req.body).then(value => res.json(req.assignment)).catch(err => res.status(500).send(err.message))
+    assignmentModel.find({ assignmentId: req.assignment.assignmentId }).then(function (value) {
+        if (value.id !== req.assignment.id) {
+            return res.status(422).json({ "errorMessage": "Identifier already used", "name": "identifier" })
+        }
+        let assignmenttmp = new officeSearch(req.body);
+        if (assignmenttmp.isErrors()) {
+            return res.status(422).json(assignmenttmp.getErrors().map(function (err) {
+                return { "message": err.errorMessage, "name": err.fieldSchema.name }
+            }));
+        }
+        
+    }).catch(err => res.status(500).send(err.message));
+    return assignmentModel.update(req.assignment.id, req.body).then(value => res.json(req.assignment)).catch(err => res.status(500).send(err.message));
 
 });
 
